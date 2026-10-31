@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>까치와 호랑이 · Magpie &amp; Tiger</title>
+  <style>
+    :root { --ink:#241b2f; --paper:#f6e8c8; --red:#c64c3f; --blue:#356782; --gold:#e7aa45; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#1d2633; color:var(--ink); font-family:system-ui,-apple-system,sans-serif; }
+    .wrap { width:min(960px,100%); padding:18px; }
+    header { display:flex; justify-content:space-between; align-items:end; color:#f6e8c8; margin-bottom:12px; }
+    h1 { margin:0; font-size:clamp(22px,4vw,36px); letter-spacing:.04em; }
+    .subtitle { margin:4px 0 0; opacity:.8; font-size:13px; }
+    .badge { border:1px solid #b9a986; border-radius:999px; padding:6px 10px; font-size:12px; }
+    .stage { position:relative; background:#111923; border:6px solid #b9a986; box-shadow:0 12px 40px #0008; }
+    canvas { display:block; width:100%; height:auto; image-rendering:pixelated; image-rendering:crisp-edges; background:#7aa0a3; }
+    .hud { position:absolute; inset:12px 12px auto; display:flex; justify-content:space-between; gap:12px; pointer-events:none; }
+    .panel { background:#f6e8c8eF; border:3px solid var(--ink); padding:8px 10px; box-shadow:4px 4px 0 #241b2f; font-size:13px; }
+    #dialog { position:absolute; left:8%; right:8%; bottom:12px; min-height:74px; display:none; }
+    #dialog strong { color:var(--red); }
+    .help { color:#f6e8c8; text-align:center; font-size:13px; margin-top:10px; }
+    button { border:2px solid var(--ink); background:var(--gold); padding:6px 10px; font-weight:700; cursor:pointer; }
+    @media (max-width:600px) { .wrap{padding:8px}.hud{inset:6px 6px auto}.panel{font-size:11px;padding:5px}.help{font-size:11px} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header><div><h1>까치와 호랑이</h1><p class="subtitle">민화도감: 사라진 색 · Web Demo</p></div><span class="badge">호작도에서 영감</span></header>
+    <section class="stage">
+      <canvas id="game" width="320" height="180" aria-label="까치와 호랑이 픽셀 게임"></canvas>
+      <div class="hud"><div class="panel" id="goal">색 조각 0 / 3</div><div class="panel">WASD / 방향키 · E</div></div>
+      <div class="panel" id="dialog" role="status"></div>
+    </section>
+    <div class="help">마을을 돌아다니며 반짝이는 색 조각을 모으고 호랑이에게 말을 걸어 보세요. <button id="reset">다시 시작</button></div>
+  </main>
+<script>
+(() => {
+  const c = document.querySelector('#game'), ctx = c.getContext('2d'), goal = document.querySelector('#goal'), dialog = document.querySelector('#dialog');
+  const W=c.width,H=c.height, keys=new Set();
+  const player={x:52,y:130,w:8,h:10,dir:1};
+  const tiger={x:258,y:74,w:22,h:20};
+  const shards=[{x:98,y:48,got:false,color:'#d96848'},{x:178,y:126,got:false,color:'#efd071'},{x:224,y:42,got:false,color:'#5c91a5'}];
+  const trees=[{x:22,y:39},{x:285,y:119},{x:142,y:26},{x:18,y:148}];
+  let tick=0, won=false;
+  function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+  function text(s,x,y,size=7,color='#241b2f'){ctx.font=`${size}px monospace`;ctx.fillStyle=color;ctx.fillText(s,x,y)}
+  function drawTree(t){rect(t.x,t.y,5,20,'#573e38');rect(t.x-7,t.y-9,19,15,'#386052');rect(t.x-3,t.y-14,11,9,'#46755d');rect(t.x-2,t.y-11,4,4,'#e7aa45')}
+  function draw(){
+    rect(0,0,W,H,'#7aa0a3'); rect(0,104,W,76,'#d9bd7e');
+    for(let x=0;x<W;x+=16) for(let y=106;y<H;y+=12) if((x+y)%32===0) rect(x,y,7,1,'#c6a66a');
+    rect(0,92,W,13,'#527684'); rect(0,94,W,8,'#6d8e91');
+    trees.forEach(drawTree);
+    rect(112,112,56,34,'#c64c3f'); rect(108,112,64,5,'#f1d18a'); rect(120,91,7,21,'#573e38'); rect(153,91,7,21,'#573e38');
+    rect(117,121,46,25,'#ead39d'); rect(137,128,7,18,'#6e4439');
+    // tiger: playful paper-cutout silhouette
+    rect(tiger.x,tiger.y+5,22,15,'#e3a04c'); rect(tiger.x+3,tiger.y,16,10,'#e3a04c'); rect(tiger.x+3,tiger.y,5,4,'#c64c3f'); rect(tiger.x+14,tiger.y,5,4,'#c64c3f');
+    rect(tiger.x+7,tiger.y+4,2,2,'#241b2f'); rect(tiger.x+15,tiger.y+4,2,2,'#241b2f'); rect(tiger.x+10,tiger.y+8,5,2,'#c64c3f');
+    rect(tiger.x-5,tiger.y+12,5,3,'#e3a04c'); rect(tiger.x-8,tiger.y+8,4,4,'#e3a04c');
+    // magpie
+    const bx=70,by=32; rect(bx,by,8,6,'#241b2f'); rect(bx+7,by-3,5,5,'#241b2f'); rect(bx+12,by-1,4,2,'#e7aa45'); rect(bx-3,by+5,10,3,'#356782');
+    shards.forEach((s,i)=>{ if(!s.got){const bob=Math.sin(tick/12+i)*2; rect(s.x,s.y+bob,5,7,s.color);rect(s.x+2,s.y-3+bob,2,13,'#f8efbd');} });
+    // player
+    rect(player.x,player.y,player.w,player.h,'#356782'); rect(player.x+2,player.y-5,5,5,'#e8c18c'); rect(player.x-2,player.y+4,12,3,'#c64c3f');
+    goal.textContent=`색 조각 ${shards.filter(s=>s.got).length} / 3`;
+  }
+  function near(a,b,d=22){return Math.hypot(a.x-b.x,a.y-b.y)<d}
+  function say(html){dialog.innerHTML=html;dialog.style.display='block'}
+  function interact(){
+    const target=shards.find(s=>!s.got && near(player,s,14));
+    if(target){target.got=true;say('<strong>색 조각을 찾았다!</strong><br>민화의 색은 장면의 마음을 보여준다.'); if(shards.every(s=>s.got)) won=true; return;}
+    if(near(player,tiger,30)){ if(won) say('<strong>호랑이:</strong> 이제 그림의 색이 돌아왔구나. 까치도 네 용기를 기억할 거야!'); else say('<strong>호랑이:</strong> 어흥… 내 색 조각을 찾아오면 비밀을 알려주지.'); }
+  }
+  function loop(){tick++;let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;if(dx||dy){player.x=Math.max(8,Math.min(W-16,player.x+dx*1.4));player.y=Math.max(18,Math.min(H-14,player.y+dy*1.4));player.dir=dx||player.dir;}draw();requestAnimationFrame(loop)}
+  addEventListener('keydown',e=>{keys.add(e.key);if([' ','e','E'].includes(e.key)){e.preventDefault();interact()}}); addEventListener('keyup',e=>keys.delete(e.key));
+  document.querySelector('#reset').onclick=()=>location.reload(); draw(); loop();
+})();
+</script>
+</body>
+</html>
